@@ -1,12 +1,29 @@
 import os
 import requests
+import streamlit as st
 from typing import Any, Dict, List, Optional
+from dotenv import load_dotenv
+
+load_dotenv()
 
 BASE = "https://www.kobis.or.kr/kobisopenapi/webservice/rest"
 
 class KobisClient:
     def __init__(self, api_key: Optional[str] = None, timeout: int = 10):
-        self.api_key = api_key or os.getenv("KOBIS_API_KEY", "")
+        # 1. 우선순위: 직접 입력받은 키
+        self.api_key = api_key
+        
+        # 2. 직접 입력이 없으면 환경변수(.env)에서 먼저 찾음
+        if not self.api_key:
+            self.api_key = os.getenv("KOBIS_API_KEY", "")
+
+        # 3. 클라우드(Secrets)에 키가 있다면 덮어씌움 (에러 방지 처리)
+        try:
+            if "KOBIS_API_KEY" in st.secrets:
+                self.api_key = st.secrets["KOBIS_API_KEY"]
+        except:
+            pass
+            
         self.timeout = timeout
 
     def _get(self, path: str, params: Dict[str, Any]) -> Dict[str, Any]:
@@ -41,9 +58,6 @@ class KobisClient:
 
     # --- Convenience ---
     def verify_titles(self, titles: List[str]) -> Dict[str, Any]:
-        """
-        title -> {movieCd, openDt, genre, directors, nation, ...} 최대한 매칭되는 1개씩만
-        """
         out: Dict[str, Any] = {}
         for t in titles:
             t = (t or "").strip()
